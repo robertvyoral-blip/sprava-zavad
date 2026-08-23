@@ -1,4 +1,4 @@
-const CACHE_NAME = 'sprava-zavad-v1';
+const CACHE_NAME = 'sprava-zavad-v2';
 const APP_ASSETS = [
   './',
   './index.html',
