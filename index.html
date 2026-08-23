@@ -149,12 +149,21 @@
   </template>
 
   <script>
-const STORAGE_KEY='spravaZavadDataV2', LEGACY_STORAGE_KEY='udrzbaData', SCHEMA_VERSION=2;
+const STORAGE_KEY='spravaZavadDataV3', PREVIOUS_STORAGE_KEY='spravaZavadDataV2', LEGACY_STORAGE_KEY='udrzbaData', SCHEMA_VERSION=3;
 const privateUnit=(id,extra={})=>({id,tenant:'',phone:'',...extra});
 const commonArea=()=>privateUnit('common',{label:'Společné prostory',common:true});
+const unitRange=(floor,from,to)=>Array.from({length:to-from+1},(_,i)=>privateUnit(String(floor*100+from+i)));
 const hurdiskyUnits=()=>[
   ...['101','102','103','104','105','106','107','201','202','203','204','205','206','207'].map(id=>privateUnit(id)),
   commonArea()
+];
+const schoolUnits=()=>[
+  ...[1,2,3,4,5].flatMap(floor=>unitRange(floor,1,20)),
+  ...unitRange(6,2,7),...unitRange(6,10,14),commonArea()
+];
+const nadraziUnits=()=>[
+  ...unitRange(1,1,9),...unitRange(1,11,12),
+  ...unitRange(2,1,12),...unitRange(3,1,12),...unitRange(4,1,12),commonArea()
 ];
 
 const seed = {
@@ -164,17 +173,26 @@ const seed = {
     {id:'1985',name:'tř. Tomáše Bati 1985',group:'Nové Hurdisky',apartments:hurdiskyUnits(),equipment:['Rekuperace Atrea Duplex 200/300 easy2.cp','Systém dešťové vody INTEWA RAINMASTER / WATERRO UV55W / ASIO','Zelené truhlíky – realizace A+K úpravy zeleně']},
     {id:'1986',name:'tř. Tomáše Bati 1986',group:'Nové Hurdisky',apartments:hurdiskyUnits(),equipment:['Rekuperace Atrea Duplex 200/300 easy2.cp','Systém dešťové vody INTEWA RAINMASTER / WATERRO UV55W / ASIO','Zelené truhlíky – realizace A+K úpravy zeleně']},
     {id:'1977',name:'Hložkova 1977',apartments:[...['101','202','301','303','401'].map(id=>privateUnit(id)),commonArea()],equipment:['Sprchové zástěny SanSwiss TOE3']},
-    {id:'1595',name:'K. Čapka 1595',apartments:[commonArea()],equipment:['Kamerový systém – 5 kamer']},
-    {id:'1611',name:'Nádražní 1611',apartments:[commonArea()],equipment:['Kamerový systém – 5 kamer']},
-    {id:'1612',name:'Nádražní 1612',apartments:[commonArea()],equipment:['Kamerový systém – 5 kamer']},
-    {id:'1299',name:'Školní 1299',apartments:[commonArea()],equipment:['Dieselagregát']},
-    {id:'1161',name:'Hlavní 1161',apartments:[commonArea()],equipment:[]},
+    {id:'1595',name:'K. Čapka 1595',apartments:[...['101','102','103'].map(id=>privateUnit(id)),...unitRange(1,5,12),...unitRange(2,1,12),...unitRange(3,1,12),...unitRange(4,1,12),commonArea()],equipment:['Kamerový systém – 7 kamer']},
+    {id:'1611',name:'Nádražní 1611',apartments:nadraziUnits(),equipment:['Kamerový systém – 6 kamer']},
+    {id:'1612',name:'Nádražní 1612',apartments:nadraziUnits(),equipment:['Kamerový systém – 6 kamer']},
+    {id:'1299',name:'Školní 1299',apartments:schoolUnits(),equipment:['Dieselagregát']},
+    {id:'1161',name:'Hlavní 1161',apartments:[...unitRange(1,1,5),...unitRange(2,1,11),...unitRange(3,1,11),...unitRange(4,1,11),commonArea()],equipment:[]},
+    {id:'603',name:'tř. Odboje 603',apartments:[...unitRange(1,1,3),...unitRange(2,1,3),commonArea()],equipment:[]},
     {id:'604',name:'tř. Odboje 604',apartments:[commonArea()],equipment:[]},
     {id:'k3',name:'K3',apartments:[commonArea()],equipment:['Rekuperace SIBER HRVEVO2PR – 3 byty / 6 filtrů']},
-    {id:'283',name:'Nivy 283',apartments:[commonArea()],equipment:[]},
+    {id:'283',name:'Nivy 283',apartments:[...unitRange(1,1,6),...unitRange(2,1,12),commonArea()],equipment:[]},
     {id:'5213',name:'Přístavní 5213',apartments:[privateUnit('101'),commonArea()],equipment:[]},
     {id:'267',name:'Lidická 267',apartments:[commonArea()],equipment:[]},
-    {id:'1599',name:'Příčná 1599',apartments:[commonArea()],equipment:[]}
+    {id:'1599',name:'Příčná 1599',apartments:[...unitRange(1,1,12),...unitRange(2,1,12),commonArea()],equipment:[]},
+    {id:'1160',name:'Hlavní 1160',apartments:[privateUnit('101'),commonArea()],equipment:[]},
+    {id:'1355',name:'J. Žižky 1355',apartments:[privateUnit('101'),commonArea()],equipment:[]},
+    {id:'908',name:'Mánesova 908',apartments:[privateUnit('101'),commonArea()],equipment:[]},
+    {id:'1168',name:'Bezručova 1168',apartments:[privateUnit('A 202'),commonArea()],equipment:[]},
+    {id:'1422',name:'J. Jabůrkové 1422',apartments:[privateUnit('402'),commonArea()],equipment:[]},
+    {id:'1155',name:'Letiště 1155',apartments:[privateUnit('101'),commonArea()],equipment:[]},
+    {id:'6711',name:'Mánesova 6711',apartments:[privateUnit('103'),commonArea()],equipment:[]},
+    {id:'5211',name:'Přístavní 5211',apartments:[privateUnit('103'),commonArea()],equipment:[]}
   ],
   tradespeople:[
     {id:'pk-instalace',category:'water',name:'PK instalace',scope:'Voda, topení a instalace',email:'',phone:''},
@@ -212,15 +230,30 @@ const buildingSelect=$('#buildingSelect'), apartmentSelect=$('#apartmentSelect')
 let data=loadData(), selectedCategory='water', selectedTradespersonId='';
 
 function cloneSeed(){return structuredClone(seed)}
+function upgradeData(saved){
+  const fresh=cloneSeed();
+  if(!saved||!Array.isArray(saved.buildings)||!Array.isArray(saved.tradespeople)||!Array.isArray(saved.issues))return fresh;
+  fresh.buildings.forEach(building=>{
+    const previous=saved.buildings.find(item=>item.id===building.id);if(!previous)return;
+    building.apartments.forEach(unit=>{const old=previous.apartments?.find(item=>item.id===unit.id);if(old){unit.tenant=old.tenant||'';unit.phone=old.phone||'';}});
+  });
+  const catalogBuildingIds=new Set(fresh.buildings.map(item=>item.id));
+  fresh.buildings.push(...saved.buildings.filter(item=>!catalogBuildingIds.has(item.id)));
+  fresh.tradespeople.forEach(trade=>{const old=saved.tradespeople.find(item=>item.id===trade.id);if(old){trade.email=old.email||'';trade.phone=old.phone||'';}});
+  const catalogTradeIds=new Set(fresh.tradespeople.map(item=>item.id));
+  fresh.tradespeople.push(...saved.tradespeople.filter(item=>!catalogTradeIds.has(item.id)));
+  fresh.issues=saved.issues;fresh.schemaVersion=SCHEMA_VERSION;return fresh;
+}
 function loadData(){
   try{
     const saved=JSON.parse(localStorage.getItem(STORAGE_KEY));
-    if(saved?.schemaVersion===SCHEMA_VERSION&&Array.isArray(saved.buildings)&&Array.isArray(saved.tradespeople)&&Array.isArray(saved.issues))return saved;
+    if(saved)return upgradeData(saved);
   }catch(e){}
+  try{const previous=JSON.parse(localStorage.getItem(PREVIOUS_STORAGE_KEY));if(previous)return upgradeData(previous)}catch(e){}
   try{localStorage.removeItem(LEGACY_STORAGE_KEY)}catch(e){}
   return cloneSeed();
 }
-function saveData(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(data))}catch(e){alert('Data se nepodařilo uložit do telefonu.')}}
+function saveData(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(data));localStorage.removeItem(PREVIOUS_STORAGE_KEY)}catch(e){alert('Data se nepodařilo uložit do telefonu.')}}
 function currentBuilding(){return data.buildings.find(b=>b.id===buildingSelect.value)}
 function currentApartment(){return currentBuilding()?.apartments.find(a=>a.id===apartmentSelect.value)}
 function selectedTrade(){return data.tradespeople.find(t=>t.id===selectedTradespersonId)}
@@ -343,7 +376,7 @@ $('#savePrivateUnit').onclick=()=>{const a=currentApartment();if(!a)return;a.ten
 $('#saveSupplierContact').onclick=()=>{const t=data.tradespeople.find(x=>x.id===$('#supplierEditSelect').value);if(!t)return;t.email=$('#supplierEmail').value.trim();t.phone=$('#supplierPhone').value.trim();saveData();renderAssigned();alert('Kontakt firmy byl uložen pouze v tomto telefonu.')};
 $('#exportBackup').onclick=()=>downloadFile(`sprava-zavad-zaloha-${new Date().toISOString().slice(0,10)}.json`,JSON.stringify(data,null,2),'application/json');
 $('#importBackup').onclick=()=>$('#importFile').click();
-$('#importFile').onchange=async event=>{const file=event.target.files?.[0];if(!file)return;try{const imported=JSON.parse(await file.text());if(imported?.schemaVersion!==SCHEMA_VERSION||!Array.isArray(imported.buildings)||!Array.isArray(imported.tradespeople)||!Array.isArray(imported.issues))throw new Error('Neplatný formát');if(!confirm('Načtením zálohy nahradíš současná místní data. Pokračovat?'))return;data=imported;saveData();init();alert('Záloha byla načtena.')}catch(e){alert('Soubor není platná záloha aplikace Správa závad.')}finally{event.target.value=''}};
+$('#importFile').onchange=async event=>{const file=event.target.files?.[0];if(!file)return;try{const imported=JSON.parse(await file.text());if(![2,3].includes(imported?.schemaVersion)||!Array.isArray(imported.buildings)||!Array.isArray(imported.tradespeople)||!Array.isArray(imported.issues))throw new Error('Neplatný formát');if(!confirm('Načtením zálohy nahradíš současná místní data. Pokračovat?'))return;data=upgradeData(imported);saveData();init();alert('Záloha byla načtena.')}catch(e){alert('Soubor není platná záloha aplikace Správa závad.')}finally{event.target.value=''}};
 $('#exportCsv').onclick=exportIssuesCsv;
 $('#resetCatalog').onclick=()=>{if(!confirm('Opravdu smazat všechny místní kontakty a závady a obnovit čistý katalog?'))return;data=cloneSeed();saveData();init();alert('Čistý katalog byl obnoven.')};
 
