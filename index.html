@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b57d0" />
+  <title>Správa závad</title>
+  <meta name="description" content="Mobilní evidence a hlášení závad v městských bytech." />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Správa závad" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <style>
+:root{
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color:#14213d;background:#f3f6fb;--blue:#0b57d0;--line:#dbe4f1;--green:#16833a;
+}
+*{box-sizing:border-box} body{margin:0;background:#f3f6fb}.topbar{position:sticky;top:0;z-index:3;background:linear-gradient(135deg,#0b57d0,#0d47a1);color:white;padding:18px max(18px,env(safe-area-inset-left));display:flex;align-items:center;justify-content:space-between;box-shadow:0 2px 12px #0002}.topbar h1{margin:0;font-size:1.35rem}.eyebrow{font-size:.78rem;opacity:.8}.shell{max-width:760px;margin:auto;padding:16px}.card{background:white;border:1px solid var(--line);border-radius:18px;padding:16px;margin-bottom:14px;box-shadow:0 8px 24px #22314d12}.hidden{display:none!important}h2{font-size:1.05rem;margin:0 0 12px}.sectionHead{display:flex;justify-content:space-between;align-items:center;gap:12px}label{display:block;font-size:.86rem;font-weight:650;margin:12px 0 5px}select,input,textarea{width:100%;font:inherit;border:1px solid #cbd7e6;border-radius:12px;background:#fff;padding:12px}textarea{min-height:120px;resize:vertical}.primary,.secondary,.ghost,.buttonLink{border-radius:12px;padding:12px 14px;font-weight:750;border:0;cursor:pointer;text-align:center;text-decoration:none;display:inline-flex;align-items:center;justify-content:center}.primary{background:var(--blue);color:#fff}.secondary{background:#eef4ff;color:#0b57d0;border:1px solid #a9c5ff}.ghost{background:#ffffff18;color:inherit;border:1px solid #ffffff55}.small{padding:8px 10px;font-size:.8rem}.info{border:1px solid var(--line);border-radius:12px;background:#f8fbff;padding:12px;margin-top:12px;line-height:1.45}.muted,.hint{color:#6c7890;font-size:.8rem}.categoryGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:16px}.category{border:1px solid #cbd7e6;border-radius:14px;background:#fff;padding:14px 8px;min-height:88px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;font-weight:700;cursor:pointer}.category.selected{border:2px solid var(--blue);background:#eef5ff}.category .emoji{font-size:1.8rem}.actions{display:flex;gap:10px;margin-top:14px}.actions>*{flex:1}.issues{display:flex;flex-direction:column;gap:9px}.issueItem{display:grid;grid-template-columns:42px 1fr 118px;gap:10px;align-items:center;padding:11px;border:1px solid var(--line);border-radius:14px}.issueIcon{font-size:1.5rem;text-align:center}.issueTitle{display:block}.issueMeta{font-size:.76rem;color:#6c7890;margin-top:3px}.statusSelect{padding:8px;font-size:.76rem}.preview{white-space:pre-wrap;border:1px solid var(--line);background:#f8fbff;border-radius:14px;padding:14px;line-height:1.5}@media (max-width:520px){.issueItem{grid-template-columns:38px 1fr}.statusSelect{grid-column:2}.actions{flex-direction:column}.shell{padding:12px}.card{border-radius:15px}}
+
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <div class="eyebrow">Městské byty</div>
+      <h1>Správa závad</h1>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button id="installApp" class="ghost small" title="Nainstalovat aplikaci do telefonu">⬇ Nainstalovat</button>
+      <button id="resetDemo" class="ghost small" title="Obnovit ukázková data">↻ Demo</button>
+    </div>
+  </header>
+
+  <main class="shell">
+    <section class="card" id="homeCard">
+      <h2>Vyber byt</h2>
+      <label>Dům
+        <select id="buildingSelect"></select>
+      </label>
+      <label>Byt
+        <select id="apartmentSelect"></select>
+      </label>
+      <div id="apartmentInfo" class="info"></div>
+      <button id="newIssueBtn" class="primary">＋ Nová závada</button>
+    </section>
+
+    <section class="card">
+      <div class="sectionHead">
+        <h2>Poslední závady</h2>
+        <span id="issueCount" class="muted"></span>
+      </div>
+      <div id="issuesList" class="issues"></div>
+    </section>
+
+    <section class="card hidden" id="issueFormCard">
+      <div class="sectionHead">
+        <h2>Nová závada</h2>
+        <button id="closeForm" class="ghost small">Zavřít</button>
+      </div>
+      <div class="categoryGrid" id="categoryGrid"></div>
+      <form id="issueForm">
+        <label>Popis závady
+          <textarea id="description" maxlength="500" required placeholder="Např. Nájemník hlásí únik vody pod kuchyňským dřezem."></textarea>
+        </label>
+        <label>Kontakt na nájemníka
+          <input id="tenantPhone" type="tel" placeholder="+420 ..." />
+        </label>
+        <div id="assignedTradesperson" class="info"></div>
+        <div class="actions">
+          <button type="button" id="previewBtn" class="secondary">Náhled</button>
+          <button type="submit" class="primary">Uložit závadu</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="card hidden" id="previewCard">
+      <div class="sectionHead">
+        <h2>Náhled odeslání</h2>
+        <button id="closePreview" class="ghost small">Zavřít</button>
+      </div>
+      <div id="previewContent" class="preview"></div>
+      <div class="actions">
+        <button id="saveFromPreview" class="primary">Uložit závadu</button>
+        <a id="emailLink" class="secondary buttonLink" href="#">Otevřít e-mail</a>
+      </div>
+      <p class="hint">V této první verzi se e-mail otevře v poštovní aplikaci. Přímé automatické odeslání doplníme přes backend/API.</p>
+    </section>
+  </main>
+
+  <template id="issueTpl">
+    <article class="issueItem">
+      <div class="issueIcon"></div>
+      <div class="issueBody">
+        <strong class="issueTitle"></strong>
+        <div class="issueMeta"></div>
+      </div>
+      <select class="statusSelect">
+        <option>Nahlášeno</option>
+        <option>Předáno</option>
+        <option>Převzato</option>
+        <option>V řešení</option>
+        <option>Hotovo</option>
+      </select>
+    </article>
+  </template>
+
+  <script>
+const seed = {
+  buildings:[
+    {id:'1984',name:'tř. Tomáše Bati 1984',apartments:[
+      {id:'101',tenant:'Jan Novák',phone:'+420 777 123 456'},
+      {id:'106',tenant:'Ukázkový nájemník',phone:'+420 777 000 106'}]},
+    {id:'1985',name:'tř. Tomáše Bati 1985',apartments:[
+      {id:'104',tenant:'Jana Nováková',phone:'+420 777 123 456'},
+      {id:'102',tenant:'Ukázkový nájemník',phone:'+420 777 000 102'}]},
+    {id:'1977',name:'Hložkova 1977',apartments:[
+      {id:'101',tenant:'Ukázkový nájemník',phone:'+420 777 001 101'}]}
+  ],
+  tradespeople:[
+    {id:'water1',category:'water',name:'PK instalace s.r.o.',email:'servis@example.cz',phone:'+420 603 123 456'},
+    {id:'electric1',category:'electric',name:'Zlintherm / elektro servis',email:'elektro@example.cz',phone:'+420 603 111 222'},
+    {id:'lock1',category:'lock',name:'Zámečnický servis',email:'zamecnik@example.cz',phone:'+420 603 333 444'},
+    {id:'doors1',category:'doors',name:'Servis dveří a oken',email:'dvere@example.cz',phone:'+420 603 555 666'},
+    {id:'hvac1',category:'hvac',name:'VZT / rekuperace servis',email:'vzt@example.cz',phone:'+420 603 777 888'},
+    {id:'build1',category:'build',name:'Stavební servis',email:'stavba@example.cz',phone:'+420 603 999 000'},
+    {id:'other1',category:'other',name:'Technická správa',email:'sprava@example.cz',phone:'+420 603 222 333'}
+  ],
+  issues:[
+    {id:'2026-0001',buildingId:'1985',apartmentId:'104',category:'water',description:'Únik vody pod dřezem',status:'V řešení',created:'2026-08-23 14:10',tradespersonId:'water1'},
+    {id:'2026-0002',buildingId:'1985',apartmentId:'104',category:'electric',description:'Nefunguje zásuvka v obýváku',status:'Hotovo',created:'2026-08-20 09:12',tradespersonId:'electric1'}
+  ]
+};
+
+const categories = [
+  ['electric','⚡','Elektrikář'],['water','💧','Voda / topení'],['lock','🔑','Zámečník'],
+  ['doors','🚪','Dveře / okna'],['hvac','🌬️','Vzduchotechnika / rekuperace'],['build','🧱','Stavební'],['other','🛠️','Ostatní']
+];
+
+const $ = s => document.querySelector(s);
+const buildingSelect=$('#buildingSelect'), apartmentSelect=$('#apartmentSelect'), apartmentInfo=$('#apartmentInfo');
+let data=loadData(), selectedCategory='water';
+
+function loadData(){try{return JSON.parse(localStorage.getItem('udrzbaData'))||structuredClone(seed)}catch{return structuredClone(seed)}}
+function saveData(){try{localStorage.setItem('udrzbaData',JSON.stringify(data))}catch(e){/* local file mode: keep data in memory */}}
+function currentBuilding(){return data.buildings.find(b=>b.id===buildingSelect.value)}
+function currentApartment(){return currentBuilding()?.apartments.find(a=>a.id===apartmentSelect.value)}
+function tradeFor(cat){return data.tradespeople.find(t=>t.category===cat)}
+function catInfo(key){return categories.find(c=>c[0]===key)||['other','🛠️','Ostatní']}
+function esc(s=''){return s.replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))}
+
+function init(){
+  buildingSelect.innerHTML=data.buildings.map(b=>`<option value="${b.id}">${esc(b.name)}</option>`).join('');
+  buildingSelect.value=data.buildings[0]?.id||'';
+  renderApartments();renderCategories();renderIssues();
+}
+function renderApartments(){
+  const b=currentBuilding(); apartmentSelect.innerHTML=(b?.apartments||[]).map(a=>`<option value="${a.id}">Byt ${a.id}</option>`).join('');
+  renderApartmentInfo();renderIssues();
+}
+function renderApartmentInfo(){
+  const b=currentBuilding(), a=currentApartment();
+  if(!a){apartmentInfo.innerHTML='Žádný byt.';return}
+  apartmentInfo.innerHTML=`<strong>Byt ${esc(a.id)}</strong><br>${esc(b.name)}<br>Nájemník: ${esc(a.tenant)}<br>Telefon: <a href="tel:${esc(a.phone)}">${esc(a.phone)}</a>`;
+  $('#tenantPhone').value=a.phone||'';
+  renderAssigned();
+}
+function renderCategories(){
+  $('#categoryGrid').innerHTML=categories.map(([k,e,n])=>`<button type="button" class="category ${k===selectedCategory?'selected':''}" data-cat="${k}"><span class="emoji">${e}</span><span>${n}</span></button>`).join('');
+  document.querySelectorAll('.category').forEach(btn=>btn.onclick=()=>{selectedCategory=btn.dataset.cat;renderCategories();renderAssigned()});
+}
+function renderAssigned(){
+  const t=tradeFor(selectedCategory), c=catInfo(selectedCategory);
+  $('#assignedTradesperson').innerHTML=t?`<strong>Přiřazený řemeslník:</strong><br>${c[1]} ${esc(c[2])}<br><strong>${esc(t.name)}</strong><br>${esc(t.email)} · ${esc(t.phone)}`:'Pro tuto kategorii není přiřazen řemeslník.';
+}
+function renderIssues(){
+  const b=currentBuilding(), a=currentApartment(); if(!b||!a)return;
+  const list=data.issues.filter(i=>i.buildingId===b.id&&i.apartmentId===a.id).sort((x,y)=>y.created.localeCompare(x.created));
+  $('#issueCount').textContent=`${list.length} záznamů`; const wrap=$('#issuesList'); wrap.innerHTML='';
+  if(!list.length){wrap.innerHTML='<p class="muted">Zatím bez závad.</p>';return}
+  list.forEach(issue=>{
+    const tpl=$('#issueTpl').content.cloneNode(true), c=catInfo(issue.category);
+    tpl.querySelector('.issueIcon').textContent=c[1];tpl.querySelector('.issueTitle').textContent=issue.description;
+    tpl.querySelector('.issueMeta').textContent=`${c[2]} · ${issue.created} · #${issue.id}`;
+    const sel=tpl.querySelector('.statusSelect');sel.value=issue.status;sel.onchange=()=>{issue.status=sel.value;saveData()};
+    wrap.appendChild(tpl);
+  })
+}
+function buildPreview(){
+  const b=currentBuilding(),a=currentApartment(),t=tradeFor(selectedCategory),c=catInfo(selectedCategory),desc=$('#description').value.trim(),phone=$('#tenantPhone').value.trim();
+  const text=`Adresa: ${b.name}\nByt: ${a.id}\nNájemník: ${a.tenant}\nTelefon: ${phone}\nKategorie: ${c[2]}\n\nPopis závady:\n${desc}\n\nŘemeslník: ${t?.name||'není přiřazen'}`;
+  $('#previewContent').textContent=text;
+  const subject=encodeURIComponent(`Závada – ${b.name}, byt ${a.id} – ${c[2]}`), body=encodeURIComponent(text);
+  $('#emailLink').href=t?.email?`mailto:${t.email}?subject=${subject}&body=${body}`:'#';
+  return {b,a,t,c,desc,phone};
+}
+function createIssue(){
+  const p=buildPreview(); if(!p.desc){alert('Doplň popis závady.');return false}
+  const next=String(data.issues.length+1).padStart(4,'0');
+  data.issues.push({id:`2026-${next}`,buildingId:p.b.id,apartmentId:p.a.id,category:selectedCategory,description:p.desc,status:'Nahlášeno',created:new Date().toLocaleString('cs-CZ'),tradespersonId:p.t?.id||null,tenantPhone:p.phone});
+  saveData();renderIssues();$('#description').value='';$('#issueFormCard').classList.add('hidden');$('#previewCard').classList.add('hidden');
+  alert('Závada byla uložena do historie bytu.');return true;
+}
+
+buildingSelect.onchange=renderApartments;apartmentSelect.onchange=renderApartmentInfo;
+$('#newIssueBtn').onclick=()=>{$('#issueFormCard').classList.remove('hidden');$('#issueFormCard').scrollIntoView({behavior:'smooth'});renderApartmentInfo()};
+$('#closeForm').onclick=()=>$('#issueFormCard').classList.add('hidden');
+$('#previewBtn').onclick=()=>{if(!$('#description').value.trim()){alert('Doplň popis závady.');return}buildPreview();$('#previewCard').classList.remove('hidden');$('#previewCard').scrollIntoView({behavior:'smooth'})};
+$('#closePreview').onclick=()=>$('#previewCard').classList.add('hidden');
+$('#issueForm').onsubmit=e=>{e.preventDefault();createIssue()};
+$('#saveFromPreview').onclick=createIssue;
+$('#resetDemo').onclick=()=>{if(confirm('Obnovit ukázková data?')){try{localStorage.removeItem('udrzbaData')}catch(e){}data=structuredClone(seed);init()}};
+
+
+let deferredInstallPrompt = null;
+const installButton = $('#installApp');
+
+window.addEventListener('beforeinstallprompt', (event) => {
+  event.preventDefault();
+  deferredInstallPrompt = event;
+  installButton.style.display = 'inline-flex';
+});
+
+installButton.onclick = async () => {
+  if (deferredInstallPrompt) {
+    deferredInstallPrompt.prompt();
+    await deferredInstallPrompt.userChoice;
+    deferredInstallPrompt = null;
+    return;
+  }
+  alert('Pokud Chrome nenabídne instalaci automaticky, otevři menu ⋮ a zvol „Přidat na plochu“ nebo „Nainstalovat aplikaci“.');
+};
+
+window.addEventListener('appinstalled', () => {
+  deferredInstallPrompt = null;
+  installButton.textContent = '✓ Nainstalováno';
+});
+
+if('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+  navigator.serviceWorker.register('./service-worker.js').catch(()=>{});
+}
+
+init();
+
+  </script>
+</body>
+</html>
